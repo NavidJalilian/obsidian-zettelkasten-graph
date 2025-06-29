@@ -1,0 +1,11 @@
+{
+	"id": "zettelkasten-graph",
+	"name": "Zettelkasten Graph Visualizer",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Visualize Zettelkasten numbering system as an interactive graph showing hierarchical sequences and branching thoughts",
+	"author": "Zettelkasten Graph Plugin",
+	"authorUrl": "",
+	"fundingUrl": "",
+	"isDesktopOnly": false
+}

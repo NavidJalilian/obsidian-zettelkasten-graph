@@ -1,0 +1,183 @@
+/* Zettelkasten Graph View Styles */
+
+.zettelkasten-graph-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 10px;
+}
+
+.zettelkasten-controls {
+    flex-shrink: 0;
+    margin-bottom: 10px;
+}
+
+.zettelkasten-controls .setting-item {
+    border: none;
+    padding: 8px 0;
+}
+
+.zettelkasten-controls .setting-item-info {
+    margin-right: 10px;
+}
+
+.zettelkasten-controls .setting-item-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.zettelkasten-controls input[type="text"] {
+    min-width: 200px;
+}
+
+.zettelkasten-graph-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.zettelkasten-stats {
+    font-family: var(--font-monospace);
+    line-height: 1.4;
+}
+
+.zettelkasten-stats div {
+    margin: 2px 0;
+}
+
+/* Graph SVG Styles */
+.zettelkasten-graph-container svg {
+    cursor: grab;
+}
+
+.zettelkasten-graph-container svg:active {
+    cursor: grabbing;
+}
+
+/* Node styles */
+.node {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.node:hover circle {
+    stroke-width: 3px;
+    filter: brightness(1.1);
+}
+
+.node circle {
+    transition: all 0.2s ease;
+}
+
+/* Link styles */
+.link {
+    transition: all 0.2s ease;
+}
+
+.link-sequence {
+    stroke: #4a90e2;
+    stroke-width: 2px;
+}
+
+.link-branch {
+    stroke: #e74c3c;
+    stroke-width: 1.5px;
+    stroke-dasharray: 5,5;
+}
+
+/* Hover effects */
+.node:hover + .link,
+.link:hover {
+    stroke-width: 3px;
+    opacity: 1;
+}
+
+/* Legend styles (if we want to add one later) */
+.zettelkasten-legend {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 0.8em;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.zettelkasten-legend-item {
+    display: flex;
+    align-items: center;
+    margin: 4px 0;
+}
+
+.zettelkasten-legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.zettelkasten-legend-color.sequence {
+    background-color: #4a90e2;
+}
+
+.zettelkasten-legend-color.branch {
+    background-color: #e74c3c;
+}
+
+/* Dark theme adjustments */
+.theme-dark .zettelkasten-graph-container {
+    background-color: var(--background-primary);
+}
+
+.theme-dark .node text {
+    fill: white;
+}
+
+/* Light theme adjustments */
+.theme-light .zettelkasten-graph-container {
+    background-color: var(--background-primary);
+}
+
+.theme-light .node text {
+    fill: white;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .zettelkasten-controls .setting-item-control {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .zettelkasten-controls input[type="text"] {
+        min-width: unset;
+        width: 100%;
+        margin-bottom: 8px;
+    }
+}
+
+/* Loading and error states */
+.zettelkasten-loading,
+.zettelkasten-error,
+.zettelkasten-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    padding: 20px;
+    color: var(--text-muted);
+}
+
+.zettelkasten-error {
+    color: var(--text-error);
+}
+
+/* Tooltip styles for better node information display */
+.node title {
+    font-family: var(--font-interface);
+    font-size: 12px;
+}
