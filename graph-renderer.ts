@@ -1,6 +1,6 @@
 import * as d3 from 'd3';
 import { ZettelNode, ZettelGraph } from './zettelkasten-parser';
-import { TFile, Workspace } from 'obsidian';
+import { Workspace } from 'obsidian';
 
 interface GraphNode extends d3.SimulationNodeDatum {
     id: string;
@@ -15,15 +15,24 @@ interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
     type: 'sequence' | 'branch';
 }
 
+interface NoteCreationCallbacks {
+    onCreateSequential: (node: ZettelNode) => Promise<void>;
+    onCreateBranch: (node: ZettelNode) => Promise<void>;
+}
+
 export class GraphRenderer {
     private svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
     private simulation: d3.Simulation<GraphNode, GraphLink>;
     private workspace: Workspace;
     private container: HTMLElement;
+    private noteCreationCallbacks?: NoteCreationCallbacks;
+    private currentTransform: d3.ZoomTransform = d3.zoomIdentity;
+    private nodePositions: Map<string, {x: number, y: number}> = new Map();
 
-    constructor(container: HTMLElement, workspace: Workspace) {
+    constructor(container: HTMLElement, workspace: Workspace, noteCreationCallbacks?: NoteCreationCallbacks) {
         this.container = container;
         this.workspace = workspace;
+        this.noteCreationCallbacks = noteCreationCallbacks;
         this.initializeSVG();
     }
 
@@ -46,6 +55,7 @@ export class GraphRenderer {
         const zoom = d3.zoom<SVGSVGElement, unknown>()
             .scaleExtent([0.1, 4])
             .on("zoom", (event) => {
+                this.currentTransform = event.transform;
                 this.svg.select("g").attr("transform", event.transform);
             });
 
@@ -56,10 +66,23 @@ export class GraphRenderer {
     }
 
     render(graph: ZettelGraph) {
-        const nodes: GraphNode[] = Array.from(graph.nodes.values()).map(zettel => ({
-            id: zettel.id,
-            zettel: zettel
-        }));
+        const nodes: GraphNode[] = Array.from(graph.nodes.values()).map(zettel => {
+            const node: GraphNode = {
+                id: zettel.id,
+                zettel: zettel
+            };
+
+            // Restore previous position if it exists
+            const savedPosition = this.nodePositions.get(zettel.id);
+            if (savedPosition) {
+                node.x = savedPosition.x;
+                node.y = savedPosition.y;
+                node.fx = savedPosition.x; // Fix position initially
+                node.fy = savedPosition.y;
+            }
+
+            return node;
+        });
 
         const links: GraphLink[] = [];
         
@@ -84,10 +107,13 @@ export class GraphRenderer {
         const width = +this.svg.attr("width");
         const height = +this.svg.attr("height");
 
-        // Clear previous graph
+        // Clear previous graph but preserve transform
         this.svg.select("g").selectAll("*").remove();
 
         const g = this.svg.select("g");
+
+        // Restore the previous transform state
+        g.attr("transform", this.currentTransform.toString());
 
         // Create simulation
         this.simulation = d3.forceSimulation<GraphNode>(nodes)
@@ -163,14 +189,20 @@ export class GraphRenderer {
             .attr("font-weight", "bold")
             .text(d => d.zettel.number);
 
+        // Add SVG-based hover buttons (alternative approach)
+        this.addSVGHoverButtons(node);
+
         // Add title on hover
         node.append("title")
             .text(d => `${d.zettel.number}: ${d.zettel.title}`);
 
         // Add click handler to open files
-        node.on("click", (event, d) => {
+        node.on("click", (_, d) => {
             this.workspace.getLeaf().openFile(d.zettel.file);
         });
+
+        // HTML-based hover buttons are disabled in favor of SVG-based buttons
+        // which are added in addSVGHoverButtons method
 
         // Update positions on simulation tick
         this.simulation.on("tick", () => {
@@ -181,8 +213,22 @@ export class GraphRenderer {
                 .attr("y2", d => (d.target as GraphNode).y!);
 
             node
-                .attr("transform", d => `translate(${d.x},${d.y})`);
+                .attr("transform", d => {
+                    // Save node positions for stability
+                    if (d.x !== undefined && d.y !== undefined) {
+                        this.nodePositions.set(d.id, { x: d.x, y: d.y });
+                    }
+                    return `translate(${d.x},${d.y})`;
+                });
         });
+
+        // Release fixed positions after initial stabilization
+        setTimeout(() => {
+            nodes.forEach(d => {
+                d.fx = null;
+                d.fy = null;
+            });
+        }, 1000);
     }
 
     private createDragBehavior() {
@@ -203,9 +249,129 @@ export class GraphRenderer {
             });
     }
 
+
+
+    private addSVGHoverButtons(nodeSelection: d3.Selection<SVGGElement, GraphNode, SVGGElement, unknown>) {
+        // Add button group that's initially hidden
+        const buttonGroup = nodeSelection.append("g")
+            .attr("class", "hover-buttons")
+            .style("opacity", "0")
+            .style("pointer-events", "none");
+
+        // Sequential button (right side)
+        const sequentialButton = buttonGroup.append("g")
+            .attr("class", "sequential-button")
+            .attr("transform", "translate(30, 0)")
+            .style("cursor", "pointer");
+
+        sequentialButton.append("circle")
+            .attr("r", 12)
+            .attr("fill", "var(--color-blue)")
+            .attr("stroke", "white")
+            .attr("stroke-width", 2);
+
+        sequentialButton.append("text")
+            .attr("text-anchor", "middle")
+            .attr("dy", 4)
+            .attr("fill", "white")
+            .attr("font-size", "12px")
+            .attr("font-weight", "bold")
+            .text("→");
+
+        // Branch button (left side)
+        const branchButton = buttonGroup.append("g")
+            .attr("class", "branch-button")
+            .attr("transform", "translate(-30, 0)")
+            .style("cursor", "pointer");
+
+        branchButton.append("circle")
+            .attr("r", 12)
+            .attr("fill", "var(--color-red)")
+            .attr("stroke", "white")
+            .attr("stroke-width", 2);
+
+        branchButton.append("text")
+            .attr("text-anchor", "middle")
+            .attr("dy", 4)
+            .attr("fill", "white")
+            .attr("font-size", "12px")
+            .attr("font-weight", "bold")
+            .text("⤴");
+
+        // Show/hide buttons on hover - ensure only this node's buttons are shown
+        nodeSelection.on("mouseenter.buttons", function() {
+            // First, hide all other hover buttons to ensure only one set is visible
+            d3.selectAll(".hover-buttons")
+                .filter(function() { return this !== buttonGroup.node(); })
+                .style("opacity", "0")
+                .style("pointer-events", "none");
+
+            // Then show this node's buttons
+            buttonGroup
+                .style("pointer-events", "auto")
+                .transition()
+                .duration(200)
+                .style("opacity", "1");
+        });
+
+        nodeSelection.on("mouseleave.buttons", function(event) {
+            // Only hide if not moving to the button group itself
+            const relatedTarget = event.relatedTarget as Element;
+            if (relatedTarget && buttonGroup.node()?.contains(relatedTarget)) {
+                return; // Don't hide if moving to the buttons
+            }
+
+            buttonGroup
+                .transition()
+                .duration(200)
+                .style("opacity", "0")
+                .on("end", () => {
+                    buttonGroup.style("pointer-events", "none");
+                });
+        });
+
+        // Keep buttons visible when hovering over them
+        buttonGroup.on("mouseenter", function() {
+            d3.select(this)
+                .style("pointer-events", "auto")
+                .style("opacity", "1");
+        });
+
+        buttonGroup.on("mouseleave", function() {
+            d3.select(this)
+                .transition()
+                .duration(200)
+                .style("opacity", "0")
+                .on("end", () => {
+                    d3.select(this).style("pointer-events", "none");
+                });
+        });
+
+        // Add click handlers
+        sequentialButton.on("click", (event, d) => {
+            event.stopPropagation();
+            if (this.noteCreationCallbacks) {
+                this.noteCreationCallbacks.onCreateSequential(d.zettel);
+            }
+        });
+
+        branchButton.on("click", (event, d) => {
+            event.stopPropagation();
+            if (this.noteCreationCallbacks) {
+                this.noteCreationCallbacks.onCreateBranch(d.zettel);
+            }
+        });
+    }
+
     destroy() {
         if (this.simulation) {
             this.simulation.stop();
+        }
+
+        // Clean up any existing HTML-based hover buttons (legacy cleanup)
+        const existingButtons = document.querySelector('.zettelkasten-hover-buttons');
+        if (existingButtons) {
+            existingButtons.remove();
         }
     }
 }

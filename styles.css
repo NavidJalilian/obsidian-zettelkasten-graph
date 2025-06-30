@@ -61,7 +61,8 @@
     transition: all 0.2s ease;
 }
 
-.node:hover circle {
+/* Individual node hover effects - only affects the specific hovered node */
+.node:hover > circle {
     stroke-width: 3px;
     filter: brightness(1.1);
 }
@@ -86,8 +87,7 @@
     stroke-dasharray: 5,5;
 }
 
-/* Hover effects */
-.node:hover + .link,
+/* Hover effects for links - only affects specific links */
 .link:hover {
     stroke-width: 3px;
     opacity: 1;
@@ -180,4 +180,152 @@
 .node title {
     font-family: var(--font-interface);
     font-size: 12px;
+}
+
+/* Hover Button Styles */
+.zettelkasten-hover-buttons {
+    position: fixed;
+    display: flex;
+    gap: 4px;
+    z-index: 1000;
+    pointer-events: auto;
+    animation: hoverButtonsFadeIn 0.2s ease-out;
+    padding: 4px;
+    border-radius: 8px;
+    /* Add invisible padding area to make hovering easier */
+    background: transparent;
+}
+
+.zettelkasten-hover-button {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-normal);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+    font-family: var(--font-interface);
+}
+
+.zettelkasten-hover-button:hover {
+    background: var(--background-modifier-hover);
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.zettelkasten-hover-button:active {
+    transform: scale(0.95);
+    background: var(--background-modifier-active);
+}
+
+/* Sequential button styling */
+.zettelkasten-hover-button:first-child {
+    color: var(--color-blue);
+    border-color: var(--color-blue);
+}
+
+.zettelkasten-hover-button:first-child:hover {
+    background: var(--color-blue);
+    color: white;
+}
+
+/* Branch button styling */
+.zettelkasten-hover-button:last-child {
+    color: var(--color-red);
+    border-color: var(--color-red);
+}
+
+.zettelkasten-hover-button:last-child:hover {
+    background: var(--color-red);
+    color: white;
+}
+
+/* Dark theme adjustments */
+.theme-dark .zettelkasten-hover-button {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.theme-dark .zettelkasten-hover-button:hover {
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Animation for hover buttons appearance */
+@keyframes hoverButtonsFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Ensure buttons don't interfere with graph interactions */
+.zettelkasten-graph-container {
+    pointer-events: auto;
+}
+
+.zettelkasten-hover-buttons {
+    pointer-events: auto;
+}
+
+/* SVG Hover Button Styles - ensure isolation per node */
+.hover-buttons {
+    transition: opacity 0.2s ease;
+    /* Ensure buttons are isolated to their parent node */
+    isolation: isolate;
+}
+
+.sequential-button circle,
+.branch-button circle {
+    transition: all 0.2s ease;
+}
+
+.sequential-button:hover circle {
+    r: 14;
+    filter: brightness(1.1);
+}
+
+.branch-button:hover circle {
+    r: 14;
+    filter: brightness(1.1);
+}
+
+.sequential-button text,
+.branch-button text {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Ensure only one set of hover buttons is visible at a time */
+.node:not(:hover) .hover-buttons {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Ensure SVG buttons work well with dark/light themes */
+.theme-dark .sequential-button circle {
+    fill: #4a90e2;
+}
+
+.theme-dark .branch-button circle {
+    fill: #e74c3c;
+}
+
+.theme-light .sequential-button circle {
+    fill: #4a90e2;
+}
+
+.theme-light .branch-button circle {
+    fill: #e74c3c;
 }

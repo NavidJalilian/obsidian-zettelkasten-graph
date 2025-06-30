@@ -137,4 +137,48 @@ export class ZettelkastenParser {
         }
         return undefined;
     }
+
+    // Helper methods for note creation
+    public generateNextSequentialNumber(currentNumber: string, existingNumbers: string[]): string {
+        // Remove any letter suffix to get the base number
+        const baseNumber = currentNumber.replace(/[a-z]+$/, '');
+        const parts = baseNumber.split('.');
+
+        // For sequential notes, we increment at the same level
+        // 4 -> 5, 4.1 -> 4.2, 4.1.2 -> 4.1.3
+        const lastPart = parseInt(parts[parts.length - 1]);
+        const baseParts = parts.slice(0, -1);
+
+        let nextNumber: string;
+        let counter = lastPart + 1;
+
+        do {
+            if (baseParts.length > 0) {
+                nextNumber = baseParts.join('.') + '.' + counter;
+            } else {
+                nextNumber = counter.toString();
+            }
+            counter++;
+        } while (existingNumbers.includes(nextNumber));
+
+        return nextNumber;
+    }
+
+    public generateNextBranchLetter(currentNumber: string, existingNumbers: string[]): string {
+        const baseNumber = currentNumber.replace(/[a-z]+$/, '');
+
+        // Find all existing branch letters for this base number
+        const existingBranches = existingNumbers
+            .filter(num => num.startsWith(baseNumber) && this.BRANCH_PATTERN.test(num))
+            .map(num => num.replace(baseNumber, ''))
+            .filter(suffix => /^[a-z]+$/.test(suffix));
+
+        // Find next available letter
+        let nextLetter = 'a';
+        while (existingBranches.includes(nextLetter)) {
+            nextLetter = String.fromCharCode(nextLetter.charCodeAt(0) + 1);
+        }
+
+        return baseNumber + nextLetter;
+    }
 }

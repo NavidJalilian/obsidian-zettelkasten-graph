@@ -1,6 +1,7 @@
-import { ItemView, WorkspaceLeaf, Setting } from 'obsidian';
-import { ZettelkastenParser, ZettelGraph } from './zettelkasten-parser';
+import { ItemView, WorkspaceLeaf, Setting, Notice } from 'obsidian';
+import { ZettelkastenParser, ZettelGraph, ZettelNode } from './zettelkasten-parser';
 import { GraphRenderer } from './graph-renderer';
+import { NoteCreator } from './note-creator';
 import ZettelkastenGraphPlugin from './main';
 
 export const ZETTELKASTEN_GRAPH_VIEW_TYPE = "zettelkasten-graph-view";
@@ -9,12 +10,14 @@ export class ZettelkastenGraphView extends ItemView {
     private plugin: ZettelkastenGraphPlugin;
     private parser: ZettelkastenParser;
     private renderer: GraphRenderer;
+    private noteCreator: NoteCreator;
     private currentGraph: ZettelGraph | null = null;
 
     constructor(leaf: WorkspaceLeaf, plugin: ZettelkastenGraphPlugin) {
         super(leaf);
         this.plugin = plugin;
         this.parser = new ZettelkastenParser(this.app.vault);
+        this.noteCreator = new NoteCreator(this.app.vault, this.parser);
     }
 
     getViewType(): string {
@@ -67,8 +70,12 @@ export class ZettelkastenGraphView extends ItemView {
         graphContainer.style.border = "1px solid var(--background-modifier-border)";
         graphContainer.style.borderRadius = "4px";
 
-        // Initialize renderer
-        this.renderer = new GraphRenderer(graphContainer, this.app.workspace);
+        // Initialize renderer with note creation callbacks
+        const noteCreationCallbacks = {
+            onCreateSequential: this.createSequentialNote.bind(this),
+            onCreateBranch: this.createBranchNote.bind(this)
+        };
+        this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
 
         // Load initial graph
         await this.refreshGraph();
@@ -95,7 +102,11 @@ export class ZettelkastenGraphView extends ItemView {
             // Re-initialize renderer with fresh container
             if (graphContainer) {
                 graphContainer.innerHTML = '';
-                this.renderer = new GraphRenderer(graphContainer, this.app.workspace);
+                const noteCreationCallbacks = {
+                    onCreateSequential: this.createSequentialNote.bind(this),
+                    onCreateBranch: this.createBranchNote.bind(this)
+                };
+                this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
                 
                 if (this.currentGraph.nodes.size > 0) {
                     this.renderer.render(this.currentGraph);
@@ -155,9 +166,94 @@ export class ZettelkastenGraphView extends ItemView {
         if (this.renderer && this.currentGraph) {
             const graphContainer = this.containerEl.querySelector('.zettelkasten-graph-container') as HTMLElement;
             if (graphContainer) {
-                this.renderer = new GraphRenderer(graphContainer, this.app.workspace);
+                const noteCreationCallbacks = {
+                    onCreateSequential: this.createSequentialNote.bind(this),
+                    onCreateBranch: this.createBranchNote.bind(this)
+                };
+                this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
                 this.renderer.render(this.currentGraph);
             }
+        }
+    }
+
+    private async createSequentialNote(node: ZettelNode) {
+        try {
+            if (!this.currentGraph) {
+                new Notice('No graph loaded');
+                return;
+            }
+
+            const newFile = await this.noteCreator.createSequentialNote(
+                node,
+                this.currentGraph,
+                this.plugin.settings.folderPath
+            );
+
+            if (newFile) {
+                new Notice(`Created sequential note: ${newFile.basename}`);
+
+                // Refresh the graph to show the new note (preserving current view)
+                await this.refreshGraphStable();
+
+                // Optionally open the new note for editing
+                this.app.workspace.getLeaf().openFile(newFile);
+            } else {
+                new Notice('Failed to create sequential note');
+            }
+        } catch (error) {
+            console.error('Error creating sequential note:', error);
+            new Notice('Error creating sequential note');
+        }
+    }
+
+    private async createBranchNote(node: ZettelNode) {
+        try {
+            if (!this.currentGraph) {
+                new Notice('No graph loaded');
+                return;
+            }
+
+            const newFile = await this.noteCreator.createBranchNote(
+                node,
+                this.currentGraph,
+                this.plugin.settings.folderPath
+            );
+
+            if (newFile) {
+                new Notice(`Created branch note: ${newFile.basename}`);
+
+                // Refresh the graph to show the new note (preserving current view)
+                await this.refreshGraphStable();
+
+                // Optionally open the new note for editing
+                this.app.workspace.getLeaf().openFile(newFile);
+            } else {
+                new Notice('Failed to create branch note');
+            }
+        } catch (error) {
+            console.error('Error creating branch note:', error);
+            new Notice('Error creating branch note');
+        }
+    }
+
+    private async refreshGraphStable() {
+        try {
+            // Parse zettelkasten data
+            const folderPath = this.plugin.settings.folderPath.trim() || undefined;
+            this.currentGraph = await this.parser.parseZettelkasten(folderPath);
+
+            // Update the graph without re-initializing the renderer
+            if (this.renderer && this.currentGraph.nodes.size > 0) {
+                this.renderer.render(this.currentGraph);
+            }
+
+            // Update stats
+            this.updateStats();
+
+        } catch (error) {
+            console.error('Error refreshing Zettelkasten graph:', error);
+            // Fall back to full refresh if stable refresh fails
+            await this.refreshGraph();
         }
     }
 }

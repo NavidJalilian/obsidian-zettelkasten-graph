@@ -28,10 +28,10 @@ __export(main_exports, {
   default: () => ZettelkastenGraphPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // graph-view.ts
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 
 // zettelkasten-parser.ts
 var ZettelkastenParser = class {
@@ -125,6 +125,33 @@ var ZettelkastenParser = class {
       }
     }
     return void 0;
+  }
+  // Helper methods for note creation
+  generateNextSequentialNumber(currentNumber, existingNumbers) {
+    const baseNumber = currentNumber.replace(/[a-z]+$/, "");
+    const parts = baseNumber.split(".");
+    const lastPart = parseInt(parts[parts.length - 1]);
+    const baseParts = parts.slice(0, -1);
+    let nextNumber;
+    let counter = lastPart + 1;
+    do {
+      if (baseParts.length > 0) {
+        nextNumber = baseParts.join(".") + "." + counter;
+      } else {
+        nextNumber = counter.toString();
+      }
+      counter++;
+    } while (existingNumbers.includes(nextNumber));
+    return nextNumber;
+  }
+  generateNextBranchLetter(currentNumber, existingNumbers) {
+    const baseNumber = currentNumber.replace(/[a-z]+$/, "");
+    const existingBranches = existingNumbers.filter((num) => num.startsWith(baseNumber) && this.BRANCH_PATTERN.test(num)).map((num) => num.replace(baseNumber, "")).filter((suffix) => /^[a-z]+$/.test(suffix));
+    let nextLetter = "a";
+    while (existingBranches.includes(nextLetter)) {
+      nextLetter = String.fromCharCode(nextLetter.charCodeAt(0) + 1);
+    }
+    return baseNumber + nextLetter;
   }
 };
 
@@ -1076,6 +1103,11 @@ function pointer_default(event, node) {
     }
   }
   return [event.pageX, event.pageY];
+}
+
+// node_modules/d3-selection/src/selectAll.js
+function selectAll_default2(selector) {
+  return typeof selector === "string" ? new Selection([document.querySelectorAll(selector)], [document.documentElement]) : new Selection([array(selector)], root);
 }
 
 // node_modules/d3-drag/src/noevent.js
@@ -2542,7 +2574,7 @@ function select_default3(select) {
 }
 
 // node_modules/d3-transition/src/transition/selectAll.js
-function selectAll_default2(select) {
+function selectAll_default3(select) {
   var name = this._name, id2 = this._id;
   if (typeof select !== "function")
     select = selectorAll_default(select);
@@ -2743,7 +2775,7 @@ var selection_prototype = selection_default.prototype;
 Transition.prototype = transition.prototype = {
   constructor: Transition,
   select: select_default3,
-  selectAll: selectAll_default2,
+  selectAll: selectAll_default3,
   selectChild: selection_prototype.selectChild,
   selectChildren: selection_prototype.selectChildren,
   filter: filter_default2,
@@ -4066,9 +4098,12 @@ function zoom_default2() {
 
 // graph-renderer.ts
 var GraphRenderer = class {
-  constructor(container, workspace) {
+  constructor(container, workspace, noteCreationCallbacks) {
+    this.currentTransform = identity2;
+    this.nodePositions = /* @__PURE__ */ new Map();
     this.container = container;
     this.workspace = workspace;
+    this.noteCreationCallbacks = noteCreationCallbacks;
     this.initializeSVG();
   }
   initializeSVG() {
@@ -4077,16 +4112,27 @@ var GraphRenderer = class {
     const height = this.container.clientHeight || 600;
     this.svg = select_default2(this.container).append("svg").attr("width", width).attr("height", height).attr("viewBox", [0, 0, width, height]).style("max-width", "100%").style("height", "auto");
     const zoom = zoom_default2().scaleExtent([0.1, 4]).on("zoom", (event) => {
+      this.currentTransform = event.transform;
       this.svg.select("g").attr("transform", event.transform);
     });
     this.svg.call(zoom);
     this.svg.append("g");
   }
   render(graph) {
-    const nodes = Array.from(graph.nodes.values()).map((zettel) => ({
-      id: zettel.id,
-      zettel
-    }));
+    const nodes = Array.from(graph.nodes.values()).map((zettel) => {
+      const node = {
+        id: zettel.id,
+        zettel
+      };
+      const savedPosition = this.nodePositions.get(zettel.id);
+      if (savedPosition) {
+        node.x = savedPosition.x;
+        node.y = savedPosition.y;
+        node.fx = savedPosition.x;
+        node.fy = savedPosition.y;
+      }
+      return node;
+    });
     const links = [];
     for (const node of nodes) {
       for (const childId of node.zettel.children) {
@@ -4107,6 +4153,7 @@ var GraphRenderer = class {
     const height = +this.svg.attr("height");
     this.svg.select("g").selectAll("*").remove();
     const g = this.svg.select("g");
+    g.attr("transform", this.currentTransform.toString());
     this.simulation = simulation_default(nodes).force("link", link_default(links).id((d) => d.id).distance(100).strength(0.8)).force("charge", manyBody_default().strength(-300)).force("center", center_default(width / 2, height / 2)).force("collision", collide_default().radius(30));
     const defs = g.append("defs");
     defs.append("marker").attr("id", "arrow-sequence").attr("viewBox", "0 -5 10 10").attr("refX", 25).attr("refY", 0).attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto").append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#4a90e2");
@@ -4115,14 +4162,26 @@ var GraphRenderer = class {
     const node = g.append("g").attr("class", "nodes").selectAll("g").data(nodes).enter().append("g").attr("class", "node").call(this.createDragBehavior());
     node.append("circle").attr("r", (d) => d.zettel.type === "sequence" ? 20 : 15).attr("fill", (d) => d.zettel.type === "sequence" ? "#4a90e2" : "#e74c3c").attr("stroke", "#fff").attr("stroke-width", 2);
     node.append("text").attr("dy", 4).attr("text-anchor", "middle").attr("fill", "white").attr("font-size", "10px").attr("font-weight", "bold").text((d) => d.zettel.number);
+    this.addSVGHoverButtons(node);
     node.append("title").text((d) => `${d.zettel.number}: ${d.zettel.title}`);
-    node.on("click", (event, d) => {
+    node.on("click", (_, d) => {
       this.workspace.getLeaf().openFile(d.zettel.file);
     });
     this.simulation.on("tick", () => {
       link.attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
-      node.attr("transform", (d) => `translate(${d.x},${d.y})`);
+      node.attr("transform", (d) => {
+        if (d.x !== void 0 && d.y !== void 0) {
+          this.nodePositions.set(d.id, { x: d.x, y: d.y });
+        }
+        return `translate(${d.x},${d.y})`;
+      });
     });
+    setTimeout(() => {
+      nodes.forEach((d) => {
+        d.fx = null;
+        d.fy = null;
+      });
+    }, 1e3);
   }
   createDragBehavior() {
     return drag_default().on("start", (event, d) => {
@@ -4140,21 +4199,163 @@ var GraphRenderer = class {
       d.fy = null;
     });
   }
+  addSVGHoverButtons(nodeSelection) {
+    const buttonGroup = nodeSelection.append("g").attr("class", "hover-buttons").style("opacity", "0").style("pointer-events", "none");
+    const sequentialButton = buttonGroup.append("g").attr("class", "sequential-button").attr("transform", "translate(30, 0)").style("cursor", "pointer");
+    sequentialButton.append("circle").attr("r", 12).attr("fill", "var(--color-blue)").attr("stroke", "white").attr("stroke-width", 2);
+    sequentialButton.append("text").attr("text-anchor", "middle").attr("dy", 4).attr("fill", "white").attr("font-size", "12px").attr("font-weight", "bold").text("\u2192");
+    const branchButton = buttonGroup.append("g").attr("class", "branch-button").attr("transform", "translate(-30, 0)").style("cursor", "pointer");
+    branchButton.append("circle").attr("r", 12).attr("fill", "var(--color-red)").attr("stroke", "white").attr("stroke-width", 2);
+    branchButton.append("text").attr("text-anchor", "middle").attr("dy", 4).attr("fill", "white").attr("font-size", "12px").attr("font-weight", "bold").text("\u2934");
+    nodeSelection.on("mouseenter.buttons", function() {
+      selectAll_default2(".hover-buttons").filter(function() {
+        return this !== buttonGroup.node();
+      }).style("opacity", "0").style("pointer-events", "none");
+      buttonGroup.style("pointer-events", "auto").transition().duration(200).style("opacity", "1");
+    });
+    nodeSelection.on("mouseleave.buttons", function(event) {
+      var _a;
+      const relatedTarget = event.relatedTarget;
+      if (relatedTarget && ((_a = buttonGroup.node()) == null ? void 0 : _a.contains(relatedTarget))) {
+        return;
+      }
+      buttonGroup.transition().duration(200).style("opacity", "0").on("end", () => {
+        buttonGroup.style("pointer-events", "none");
+      });
+    });
+    buttonGroup.on("mouseenter", function() {
+      select_default2(this).style("pointer-events", "auto").style("opacity", "1");
+    });
+    buttonGroup.on("mouseleave", function() {
+      select_default2(this).transition().duration(200).style("opacity", "0").on("end", () => {
+        select_default2(this).style("pointer-events", "none");
+      });
+    });
+    sequentialButton.on("click", (event, d) => {
+      event.stopPropagation();
+      if (this.noteCreationCallbacks) {
+        this.noteCreationCallbacks.onCreateSequential(d.zettel);
+      }
+    });
+    branchButton.on("click", (event, d) => {
+      event.stopPropagation();
+      if (this.noteCreationCallbacks) {
+        this.noteCreationCallbacks.onCreateBranch(d.zettel);
+      }
+    });
+  }
   destroy() {
     if (this.simulation) {
       this.simulation.stop();
     }
+    const existingButtons = document.querySelector(".zettelkasten-hover-buttons");
+    if (existingButtons) {
+      existingButtons.remove();
+    }
+  }
+};
+
+// note-creator.ts
+var import_obsidian = require("obsidian");
+var NoteCreator = class {
+  constructor(vault, parser) {
+    this.vault = vault;
+    this.parser = parser;
+  }
+  async createSequentialNote(currentNode, currentGraph, folderPath) {
+    try {
+      const existingNumbers = Array.from(currentGraph.nodes.values()).map((node) => node.number);
+      const nextNumber = this.parser.generateNextSequentialNumber(currentNode.number, existingNumbers);
+      const fileName = await this.generateFileName(nextNumber, currentNode.file, folderPath);
+      const filePath = this.getTargetFilePath(fileName, currentNode.file, folderPath);
+      const content = this.generateNoteContent(nextNumber, "Sequential note");
+      const newFile = await this.vault.create(filePath, content);
+      return newFile;
+    } catch (error) {
+      console.error("Error creating sequential note:", error);
+      return null;
+    }
+  }
+  async createBranchNote(currentNode, currentGraph, folderPath) {
+    try {
+      const existingNumbers = Array.from(currentGraph.nodes.values()).map((node) => node.number);
+      const nextNumber = this.parser.generateNextBranchLetter(currentNode.number, existingNumbers);
+      const fileName = await this.generateFileName(nextNumber, currentNode.file, folderPath);
+      const filePath = this.getTargetFilePath(fileName, currentNode.file, folderPath);
+      const content = this.generateNoteContent(nextNumber, "Branch note");
+      const newFile = await this.vault.create(filePath, content);
+      return newFile;
+    } catch (error) {
+      console.error("Error creating branch note:", error);
+      return null;
+    }
+  }
+  async generateFileName(number, parentFile, folderPath) {
+    const parentBasename = parentFile.basename;
+    const parentNumber = this.extractNumberFromFilename(parentBasename);
+    if (parentNumber) {
+      const newBasename = parentBasename.replace(parentNumber, number);
+      return newBasename;
+    } else {
+      return `${number} - New Note`;
+    }
+  }
+  extractNumberFromFilename(filename) {
+    const match = filename.match(/^(\d+(?:\.\d+)*(?:[a-z]+)?)/);
+    return match ? match[1] : null;
+  }
+  getTargetFilePath(fileName, parentFile, folderPath) {
+    var _a;
+    let targetFolder;
+    if (folderPath && folderPath.trim()) {
+      targetFolder = folderPath.trim();
+    } else {
+      const parentFolder = ((_a = parentFile.parent) == null ? void 0 : _a.path) || "";
+      targetFolder = parentFolder;
+    }
+    const finalFileName = fileName.endsWith(".md") ? fileName : `${fileName}.md`;
+    if (targetFolder) {
+      return (0, import_obsidian.normalizePath)(`${targetFolder}/${finalFileName}`);
+    } else {
+      return (0, import_obsidian.normalizePath)(finalFileName);
+    }
+  }
+  generateNoteContent(number, noteType) {
+    const timestamp = new Date().toISOString().split("T")[0];
+    return `# ${number}
+
+${noteType} created on ${timestamp}
+
+## Content
+
+<!-- Add your content here -->
+
+---
+
+*This note was automatically created as part of your Zettelkasten system.*
+`;
+  }
+  async ensureUniqueFilePath(basePath) {
+    let finalPath = basePath;
+    let counter = 1;
+    while (await this.vault.adapter.exists(finalPath)) {
+      const pathWithoutExt = basePath.replace(/\.md$/, "");
+      finalPath = `${pathWithoutExt} (${counter}).md`;
+      counter++;
+    }
+    return finalPath;
   }
 };
 
 // graph-view.ts
 var ZETTELKASTEN_GRAPH_VIEW_TYPE = "zettelkasten-graph-view";
-var ZettelkastenGraphView = class extends import_obsidian.ItemView {
+var ZettelkastenGraphView = class extends import_obsidian2.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.currentGraph = null;
     this.plugin = plugin;
     this.parser = new ZettelkastenParser(this.app.vault);
+    this.noteCreator = new NoteCreator(this.app.vault, this.parser);
   }
   getViewType() {
     return ZETTELKASTEN_GRAPH_VIEW_TYPE;
@@ -4170,7 +4371,7 @@ var ZettelkastenGraphView = class extends import_obsidian.ItemView {
     container.empty();
     container.addClass("zettelkasten-graph-view");
     const controlsDiv = container.createDiv("zettelkasten-controls");
-    const folderSetting = new import_obsidian.Setting(controlsDiv).setName("Zettelkasten Folder").setDesc("Select folder to scan for Zettelkasten notes (leave empty for all files)");
+    const folderSetting = new import_obsidian2.Setting(controlsDiv).setName("Zettelkasten Folder").setDesc("Select folder to scan for Zettelkasten notes (leave empty for all files)");
     folderSetting.addText((text) => {
       text.setPlaceholder("folder/path").setValue(this.plugin.settings.folderPath).onChange(async (value) => {
         this.plugin.settings.folderPath = value;
@@ -4187,7 +4388,11 @@ var ZettelkastenGraphView = class extends import_obsidian.ItemView {
     graphContainer.style.height = "calc(100% - 100px)";
     graphContainer.style.border = "1px solid var(--background-modifier-border)";
     graphContainer.style.borderRadius = "4px";
-    this.renderer = new GraphRenderer(graphContainer, this.app.workspace);
+    const noteCreationCallbacks = {
+      onCreateSequential: this.createSequentialNote.bind(this),
+      onCreateBranch: this.createBranchNote.bind(this)
+    };
+    this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
     await this.refreshGraph();
   }
   async onClose() {
@@ -4205,7 +4410,11 @@ var ZettelkastenGraphView = class extends import_obsidian.ItemView {
       this.currentGraph = await this.parser.parseZettelkasten(folderPath);
       if (graphContainer) {
         graphContainer.innerHTML = "";
-        this.renderer = new GraphRenderer(graphContainer, this.app.workspace);
+        const noteCreationCallbacks = {
+          onCreateSequential: this.createSequentialNote.bind(this),
+          onCreateBranch: this.createBranchNote.bind(this)
+        };
+        this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
         if (this.currentGraph.nodes.size > 0) {
           this.renderer.render(this.currentGraph);
         } else {
@@ -4253,16 +4462,79 @@ var ZettelkastenGraphView = class extends import_obsidian.ItemView {
     if (this.renderer && this.currentGraph) {
       const graphContainer = this.containerEl.querySelector(".zettelkasten-graph-container");
       if (graphContainer) {
-        this.renderer = new GraphRenderer(graphContainer, this.app.workspace);
+        const noteCreationCallbacks = {
+          onCreateSequential: this.createSequentialNote.bind(this),
+          onCreateBranch: this.createBranchNote.bind(this)
+        };
+        this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
         this.renderer.render(this.currentGraph);
       }
+    }
+  }
+  async createSequentialNote(node) {
+    try {
+      if (!this.currentGraph) {
+        new import_obsidian2.Notice("No graph loaded");
+        return;
+      }
+      const newFile = await this.noteCreator.createSequentialNote(
+        node,
+        this.currentGraph,
+        this.plugin.settings.folderPath
+      );
+      if (newFile) {
+        new import_obsidian2.Notice(`Created sequential note: ${newFile.basename}`);
+        await this.refreshGraphStable();
+        this.app.workspace.getLeaf().openFile(newFile);
+      } else {
+        new import_obsidian2.Notice("Failed to create sequential note");
+      }
+    } catch (error) {
+      console.error("Error creating sequential note:", error);
+      new import_obsidian2.Notice("Error creating sequential note");
+    }
+  }
+  async createBranchNote(node) {
+    try {
+      if (!this.currentGraph) {
+        new import_obsidian2.Notice("No graph loaded");
+        return;
+      }
+      const newFile = await this.noteCreator.createBranchNote(
+        node,
+        this.currentGraph,
+        this.plugin.settings.folderPath
+      );
+      if (newFile) {
+        new import_obsidian2.Notice(`Created branch note: ${newFile.basename}`);
+        await this.refreshGraphStable();
+        this.app.workspace.getLeaf().openFile(newFile);
+      } else {
+        new import_obsidian2.Notice("Failed to create branch note");
+      }
+    } catch (error) {
+      console.error("Error creating branch note:", error);
+      new import_obsidian2.Notice("Error creating branch note");
+    }
+  }
+  async refreshGraphStable() {
+    try {
+      const folderPath = this.plugin.settings.folderPath.trim() || void 0;
+      this.currentGraph = await this.parser.parseZettelkasten(folderPath);
+      if (this.renderer && this.currentGraph.nodes.size > 0) {
+        this.renderer.render(this.currentGraph);
+      }
+      this.updateStats();
+    } catch (error) {
+      console.error("Error refreshing Zettelkasten graph:", error);
+      await this.refreshGraph();
     }
   }
 };
 
 // settings-tab.ts
-var import_obsidian2 = require("obsidian");
-var ZettelkastenGraphSettingTab = class extends import_obsidian2.PluginSettingTab {
+var import_obsidian3 = require("obsidian");
+var ZettelkastenGraphSettingTab = class extends import_obsidian3.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -4271,7 +4543,7 @@ var ZettelkastenGraphSettingTab = class extends import_obsidian2.PluginSettingTa
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Zettelkasten Graph Settings" });
-    new import_obsidian2.Setting(containerEl).setName("Zettelkasten Folder").setDesc("Specify the folder path to scan for Zettelkasten notes. Leave empty to scan all files in the vault.").addText((text) => text.setPlaceholder("folder/path").setValue(this.plugin.settings.folderPath).onChange(async (value) => {
+    new import_obsidian3.Setting(containerEl).setName("Zettelkasten Folder").setDesc("Specify the folder path to scan for Zettelkasten notes. Leave empty to scan all files in the vault.").addText((text) => text.setPlaceholder("folder/path").setValue(this.plugin.settings.folderPath).onChange(async (value) => {
       this.plugin.settings.folderPath = value;
       await this.plugin.saveSettings();
     }));
@@ -4286,7 +4558,7 @@ var ZettelkastenGraphSettingTab = class extends import_obsidian2.PluginSettingTa
 var DEFAULT_SETTINGS = {
   folderPath: ""
 };
-var ZettelkastenGraphPlugin = class extends import_obsidian3.Plugin {
+var ZettelkastenGraphPlugin = class extends import_obsidian4.Plugin {
   async onload() {
     await this.loadSettings();
     console.log("Loading Zettelkasten Graph Plugin");
