@@ -73,7 +73,8 @@ export class ZettelkastenGraphView extends ItemView {
         // Initialize renderer with note creation callbacks
         const noteCreationCallbacks = {
             onCreateSequential: this.createSequentialNote.bind(this),
-            onCreateBranch: this.createBranchNote.bind(this)
+            onCreateBranch: this.createBranchNote.bind(this),
+            onDeleteNote: this.deleteNote.bind(this)
         };
         this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
 
@@ -104,7 +105,8 @@ export class ZettelkastenGraphView extends ItemView {
                 graphContainer.innerHTML = '';
                 const noteCreationCallbacks = {
                     onCreateSequential: this.createSequentialNote.bind(this),
-                    onCreateBranch: this.createBranchNote.bind(this)
+                    onCreateBranch: this.createBranchNote.bind(this),
+                    onDeleteNote: this.deleteNote.bind(this)
                 };
                 this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
                 
@@ -168,7 +170,8 @@ export class ZettelkastenGraphView extends ItemView {
             if (graphContainer) {
                 const noteCreationCallbacks = {
                     onCreateSequential: this.createSequentialNote.bind(this),
-                    onCreateBranch: this.createBranchNote.bind(this)
+                    onCreateBranch: this.createBranchNote.bind(this),
+                    onDeleteNote: this.deleteNote.bind(this)
                 };
                 this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
                 this.renderer.render(this.currentGraph);
@@ -234,6 +237,121 @@ export class ZettelkastenGraphView extends ItemView {
             console.error('Error creating branch note:', error);
             new Notice('Error creating branch note');
         }
+    }
+
+    private async deleteNote(node: ZettelNode) {
+        try {
+            // Show confirmation dialog
+            const confirmed = await this.showDeleteConfirmation(node);
+            if (!confirmed) {
+                return;
+            }
+
+            // Delete the file
+            await this.app.vault.delete(node.file);
+
+            new Notice(`Deleted note: ${node.file.basename}`);
+
+            // Refresh the graph to reflect the deletion
+            await this.refreshGraphStable();
+
+        } catch (error) {
+            console.error('Error deleting note:', error);
+            new Notice('Error deleting note');
+        }
+    }
+
+    private async showDeleteConfirmation(node: ZettelNode): Promise<boolean> {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'zettelkasten-delete-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+            `;
+
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                background: var(--background-primary);
+                border: 1px solid var(--background-modifier-border);
+                border-radius: 8px;
+                padding: 20px;
+                max-width: 400px;
+                text-align: center;
+            `;
+
+            const message = document.createElement('p');
+            message.textContent = `Are you sure you want to delete "${node.file.basename}"?`;
+            message.style.marginBottom = '20px';
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = `
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+            `;
+
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = 'Cancel';
+            cancelButton.style.cssText = `
+                padding: 8px 16px;
+                border: 1px solid var(--background-modifier-border);
+                background: var(--background-secondary);
+                color: var(--text-normal);
+                border-radius: 4px;
+                cursor: pointer;
+            `;
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.style.cssText = `
+                padding: 8px 16px;
+                border: 1px solid #e74c3c;
+                background: #e74c3c;
+                color: white;
+                border-radius: 4px;
+                cursor: pointer;
+            `;
+
+            const cleanup = () => {
+                document.body.removeChild(modal);
+            };
+
+            cancelButton.addEventListener('click', () => {
+                cleanup();
+                resolve(false);
+            });
+
+            deleteButton.addEventListener('click', () => {
+                cleanup();
+                resolve(true);
+            });
+
+            // Close on escape key
+            const handleKeydown = (e: KeyboardEvent) => {
+                if (e.key === 'Escape') {
+                    cleanup();
+                    resolve(false);
+                    document.removeEventListener('keydown', handleKeydown);
+                }
+            };
+            document.addEventListener('keydown', handleKeydown);
+
+            buttonContainer.appendChild(cancelButton);
+            buttonContainer.appendChild(deleteButton);
+            dialog.appendChild(message);
+            dialog.appendChild(buttonContainer);
+            modal.appendChild(dialog);
+            document.body.appendChild(modal);
+        });
     }
 
     private async refreshGraphStable() {

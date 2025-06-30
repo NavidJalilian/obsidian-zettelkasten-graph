@@ -329,3 +329,51 @@
 .theme-light .branch-button circle {
     fill: #e74c3c;
 }
+
+/* Context Menu Styles */
+.zettelkasten-context-menu {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 120px;
+    padding: 4px 0;
+    font-family: var(--font-interface);
+    font-size: 13px;
+    z-index: 1000;
+}
+
+.zettelkasten-context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--text-normal);
+    transition: background-color 0.1s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.zettelkasten-context-menu-item:hover {
+    background: var(--background-modifier-hover);
+}
+
+.zettelkasten-context-menu-item:active {
+    background: var(--background-modifier-active);
+}
+
+/* Delete option specific styling */
+.zettelkasten-context-menu-item:hover {
+    color: var(--text-error);
+    background: var(--background-modifier-error-hover);
+}
+
+/* Dark theme adjustments for context menu */
+.theme-dark .zettelkasten-context-menu {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+/* Light theme adjustments for context menu */
+.theme-light .zettelkasten-context-menu {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}

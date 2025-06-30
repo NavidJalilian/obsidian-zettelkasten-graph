@@ -18,6 +18,7 @@ interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
 interface NoteCreationCallbacks {
     onCreateSequential: (node: ZettelNode) => Promise<void>;
     onCreateBranch: (node: ZettelNode) => Promise<void>;
+    onDeleteNote?: (node: ZettelNode) => Promise<void>;
 }
 
 export class GraphRenderer {
@@ -201,6 +202,12 @@ export class GraphRenderer {
             this.workspace.getLeaf().openFile(d.zettel.file);
         });
 
+        // Add right-click context menu
+        node.on("contextmenu", (event, d) => {
+            event.preventDefault();
+            this.showContextMenu(event, d);
+        });
+
         // HTML-based hover buttons are disabled in favor of SVG-based buttons
         // which are added in addSVGHoverButtons method
 
@@ -363,6 +370,54 @@ export class GraphRenderer {
         });
     }
 
+    private showContextMenu(event: MouseEvent, node: GraphNode) {
+        // Remove any existing context menu
+        this.hideContextMenu();
+
+        const contextMenu = document.createElement('div');
+        contextMenu.className = 'zettelkasten-context-menu';
+        contextMenu.style.position = 'absolute';
+        contextMenu.style.left = `${event.pageX}px`;
+        contextMenu.style.top = `${event.pageY}px`;
+        contextMenu.style.zIndex = '1000';
+
+        // Delete option
+        const deleteOption = document.createElement('div');
+        deleteOption.className = 'zettelkasten-context-menu-item';
+        deleteOption.textContent = 'Delete Note';
+        deleteOption.style.cursor = 'pointer';
+
+        deleteOption.addEventListener('click', async () => {
+            this.hideContextMenu();
+            if (this.noteCreationCallbacks?.onDeleteNote) {
+                await this.noteCreationCallbacks.onDeleteNote(node.zettel);
+            }
+        });
+
+        contextMenu.appendChild(deleteOption);
+        document.body.appendChild(contextMenu);
+
+        // Hide context menu when clicking elsewhere
+        const hideOnClick = (e: MouseEvent) => {
+            if (!contextMenu.contains(e.target as Node)) {
+                this.hideContextMenu();
+                document.removeEventListener('click', hideOnClick);
+            }
+        };
+
+        // Use setTimeout to avoid immediate hiding due to the current click event
+        setTimeout(() => {
+            document.addEventListener('click', hideOnClick);
+        }, 0);
+    }
+
+    private hideContextMenu() {
+        const existingMenu = document.querySelector('.zettelkasten-context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+    }
+
     destroy() {
         if (this.simulation) {
             this.simulation.stop();
@@ -373,5 +428,8 @@ export class GraphRenderer {
         if (existingButtons) {
             existingButtons.remove();
         }
+
+        // Clean up context menu
+        this.hideContextMenu();
     }
 }
