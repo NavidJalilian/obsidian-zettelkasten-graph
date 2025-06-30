@@ -24,10 +24,11 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // main.ts
 var main_exports = {};
 __export(main_exports, {
+  DEFAULT_SETTINGS: () => DEFAULT_SETTINGS,
   default: () => ZettelkastenGraphPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // graph-view.ts
 var import_obsidian = require("obsidian");
@@ -4152,7 +4153,6 @@ var ZettelkastenGraphView = class extends import_obsidian.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.currentGraph = null;
-    this.selectedFolder = "";
     this.plugin = plugin;
     this.parser = new ZettelkastenParser(this.app.vault);
   }
@@ -4172,8 +4172,9 @@ var ZettelkastenGraphView = class extends import_obsidian.ItemView {
     const controlsDiv = container.createDiv("zettelkasten-controls");
     const folderSetting = new import_obsidian.Setting(controlsDiv).setName("Zettelkasten Folder").setDesc("Select folder to scan for Zettelkasten notes (leave empty for all files)");
     folderSetting.addText((text) => {
-      text.setPlaceholder("folder/path").setValue(this.selectedFolder).onChange(async (value) => {
-        this.selectedFolder = value;
+      text.setPlaceholder("folder/path").setValue(this.plugin.settings.folderPath).onChange(async (value) => {
+        this.plugin.settings.folderPath = value;
+        await this.plugin.saveSettings();
       });
     });
     folderSetting.addButton((button) => {
@@ -4200,7 +4201,7 @@ var ZettelkastenGraphView = class extends import_obsidian.ItemView {
       if (graphContainer) {
         graphContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">Loading graph...</div>';
       }
-      const folderPath = this.selectedFolder.trim() || void 0;
+      const folderPath = this.plugin.settings.folderPath.trim() || void 0;
       this.currentGraph = await this.parser.parseZettelkasten(folderPath);
       if (graphContainer) {
         graphContainer.innerHTML = "";
@@ -4259,14 +4260,41 @@ var ZettelkastenGraphView = class extends import_obsidian.ItemView {
   }
 };
 
+// settings-tab.ts
+var import_obsidian2 = require("obsidian");
+var ZettelkastenGraphSettingTab = class extends import_obsidian2.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl("h2", { text: "Zettelkasten Graph Settings" });
+    new import_obsidian2.Setting(containerEl).setName("Zettelkasten Folder").setDesc("Specify the folder path to scan for Zettelkasten notes. Leave empty to scan all files in the vault.").addText((text) => text.setPlaceholder("folder/path").setValue(this.plugin.settings.folderPath).onChange(async (value) => {
+      this.plugin.settings.folderPath = value;
+      await this.plugin.saveSettings();
+    }));
+    containerEl.createEl("p", {
+      text: "The plugin will scan for files containing Zettelkasten numbering patterns like 21, 21.1, 21a, etc. within the specified folder.",
+      cls: "setting-item-description"
+    });
+  }
+};
+
 // main.ts
-var ZettelkastenGraphPlugin = class extends import_obsidian2.Plugin {
+var DEFAULT_SETTINGS = {
+  folderPath: ""
+};
+var ZettelkastenGraphPlugin = class extends import_obsidian3.Plugin {
   async onload() {
+    await this.loadSettings();
     console.log("Loading Zettelkasten Graph Plugin");
     this.registerView(
       ZETTELKASTEN_GRAPH_VIEW_TYPE,
       (leaf) => new ZettelkastenGraphView(leaf, this)
     );
+    this.addSettingTab(new ZettelkastenGraphSettingTab(this.app, this));
     this.addRibbonIcon("git-fork", "Open Zettelkasten Graph", () => {
       this.activateView();
     });
@@ -4311,5 +4339,11 @@ var ZettelkastenGraphPlugin = class extends import_obsidian2.Plugin {
     if (leaf) {
       workspace.revealLeaf(leaf);
     }
+  }
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+  async saveSettings() {
+    await this.saveData(this.settings);
   }
 };

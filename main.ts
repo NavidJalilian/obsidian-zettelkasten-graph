@@ -1,9 +1,20 @@
 import { Plugin, WorkspaceLeaf } from 'obsidian';
 import { ZettelkastenGraphView, ZETTELKASTEN_GRAPH_VIEW_TYPE } from './graph-view';
+import { ZettelkastenGraphSettingTab } from './settings-tab';
+
+export interface ZettelkastenGraphSettings {
+    folderPath: string;
+}
+
+export const DEFAULT_SETTINGS: ZettelkastenGraphSettings = {
+    folderPath: ""
+};
 
 export default class ZettelkastenGraphPlugin extends Plugin {
+    settings: ZettelkastenGraphSettings;
 
     async onload() {
+        await this.loadSettings();
         console.log('Loading Zettelkasten Graph Plugin');
 
         // Register the custom view
@@ -11,6 +22,9 @@ export default class ZettelkastenGraphPlugin extends Plugin {
             ZETTELKASTEN_GRAPH_VIEW_TYPE,
             (leaf) => new ZettelkastenGraphView(leaf, this)
         );
+
+        // Add settings tab
+        this.addSettingTab(new ZettelkastenGraphSettingTab(this.app, this));
 
         // Add ribbon icon
         this.addRibbonIcon('git-fork', 'Open Zettelkasten Graph', () => {
@@ -77,5 +91,13 @@ export default class ZettelkastenGraphPlugin extends Plugin {
         if (leaf) {
             workspace.revealLeaf(leaf);
         }
+    }
+
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
     }
 }

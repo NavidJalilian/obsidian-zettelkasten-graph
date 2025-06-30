@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, Setting, ButtonComponent } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Setting } from 'obsidian';
 import { ZettelkastenParser, ZettelGraph } from './zettelkasten-parser';
 import { GraphRenderer } from './graph-renderer';
 import ZettelkastenGraphPlugin from './main';
@@ -10,7 +10,6 @@ export class ZettelkastenGraphView extends ItemView {
     private parser: ZettelkastenParser;
     private renderer: GraphRenderer;
     private currentGraph: ZettelGraph | null = null;
-    private selectedFolder: string = "";
 
     constructor(leaf: WorkspaceLeaf, plugin: ZettelkastenGraphPlugin) {
         super(leaf);
@@ -45,9 +44,10 @@ export class ZettelkastenGraphView extends ItemView {
 
         folderSetting.addText(text => {
             text.setPlaceholder("folder/path")
-                .setValue(this.selectedFolder)
+                .setValue(this.plugin.settings.folderPath)
                 .onChange(async (value) => {
-                    this.selectedFolder = value;
+                    this.plugin.settings.folderPath = value;
+                    await this.plugin.saveSettings();
                 });
         });
 
@@ -89,7 +89,7 @@ export class ZettelkastenGraphView extends ItemView {
             }
 
             // Parse zettelkasten
-            const folderPath = this.selectedFolder.trim() || undefined;
+            const folderPath = this.plugin.settings.folderPath.trim() || undefined;
             this.currentGraph = await this.parser.parseZettelkasten(folderPath);
 
             // Re-initialize renderer with fresh container
