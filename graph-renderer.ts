@@ -1,13 +1,8 @@
 import * as d3 from 'd3';
 import { ZettelNode, ZettelGraph } from './zettelkasten-parser';
 import { Workspace } from 'obsidian';
-
-interface GraphNode extends d3.SimulationNodeDatum {
-    id: string;
-    zettel: ZettelNode;
-    x?: number;
-    y?: number;
-}
+import { NodeManipulator, GraphNode } from './node-manipulator';
+import { AnimationSystem } from './animation-system';
 
 interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
     source: GraphNode;
@@ -29,12 +24,100 @@ export class GraphRenderer {
     private noteCreationCallbacks?: NoteCreationCallbacks;
     private currentTransform: d3.ZoomTransform = d3.zoomIdentity;
     private nodePositions: Map<string, {x: number, y: number}> = new Map();
+    private nodeManipulator: NodeManipulator;
+    private animationSystem: AnimationSystem;
+    private currentGraph: ZettelGraph | null = null;
+    private undoButton: HTMLButtonElement;
+    private redoButton: HTMLButtonElement;
 
     constructor(container: HTMLElement, workspace: Workspace, noteCreationCallbacks?: NoteCreationCallbacks) {
         this.container = container;
         this.workspace = workspace;
         this.noteCreationCallbacks = noteCreationCallbacks;
         this.initializeSVG();
+        this.initializeManipulationSystems();
+    }
+
+    private initializeManipulationSystems() {
+        // Initialize animation system
+        this.animationSystem = new AnimationSystem();
+
+        // Initialize node manipulator (will be properly initialized when we have vault access)
+        // This will be set up in the render method when we have access to the parser
+    }
+
+    private addActionButtons() {
+        // Create action buttons container
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.className = 'zettelkasten-action-buttons';
+
+        // Undo button
+        const undoButton = document.createElement('button');
+        undoButton.className = 'zettelkasten-action-button';
+        undoButton.innerHTML = '↶';
+        undoButton.title = 'Undo (Ctrl+Z)';
+        undoButton.disabled = true;
+        undoButton.onclick = () => this.handleUndo();
+
+        // Redo button
+        const redoButton = document.createElement('button');
+        redoButton.className = 'zettelkasten-action-button';
+        redoButton.innerHTML = '↷';
+        redoButton.title = 'Redo (Ctrl+Y)';
+        redoButton.disabled = true;
+        redoButton.onclick = () => this.handleRedo();
+
+        buttonsContainer.appendChild(undoButton);
+        buttonsContainer.appendChild(redoButton);
+
+        // Add to container
+        this.container.appendChild(buttonsContainer);
+
+        // Store references for later updates
+        this.undoButton = undoButton;
+        this.redoButton = redoButton;
+
+        // Add keyboard shortcuts
+        this.addKeyboardShortcuts();
+    }
+
+    private addKeyboardShortcuts() {
+        document.addEventListener('keydown', (event) => {
+            if (event.ctrlKey || event.metaKey) {
+                if (event.key === 'z' && !event.shiftKey) {
+                    event.preventDefault();
+                    this.handleUndo();
+                } else if ((event.key === 'y') || (event.key === 'z' && event.shiftKey)) {
+                    event.preventDefault();
+                    this.handleRedo();
+                }
+            }
+        });
+    }
+
+    private async handleUndo() {
+        if (this.nodeManipulator && this.currentGraph) {
+            await this.nodeManipulator.undo(this.currentGraph, (graph) => {
+                this.render(graph);
+            });
+            this.updateActionButtonStates();
+        }
+    }
+
+    private async handleRedo() {
+        if (this.nodeManipulator && this.currentGraph) {
+            await this.nodeManipulator.redo(this.currentGraph, (graph) => {
+                this.render(graph);
+            });
+            this.updateActionButtonStates();
+        }
+    }
+
+    private updateActionButtonStates() {
+        if (this.undoButton && this.redoButton && this.nodeManipulator) {
+            this.undoButton.disabled = !this.nodeManipulator.canUndo();
+            this.redoButton.disabled = !this.nodeManipulator.canRedo();
+        }
     }
 
     private initializeSVG() {
@@ -64,9 +147,23 @@ export class GraphRenderer {
 
         // Create main group for all graph elements
         this.svg.append("g");
+
+        // Add action buttons for undo/redo
+        this.addActionButtons();
+    }
+
+    /**
+     * Initialize the node manipulator with vault and parser
+     */
+    initializeNodeManipulator(vault: any, parser: any) {
+        this.nodeManipulator = new NodeManipulator(vault, parser, this.svg);
+        this.updateActionButtonStates();
     }
 
     render(graph: ZettelGraph) {
+        // Store current graph for manipulation operations
+        this.currentGraph = graph;
+
         const nodes: GraphNode[] = Array.from(graph.nodes.values()).map(zettel => {
             const node: GraphNode = {
                 id: zettel.id,
@@ -172,7 +269,9 @@ export class GraphRenderer {
             .data(nodes)
             .enter().append("g")
             .attr("class", "node")
-            .call(this.createDragBehavior());
+            .attr("data-id", d => d.id)
+            .attr("data-number", d => d.zettel.number)
+            .call(this.createEnhancedDragBehavior(nodes));
 
         // Add node shapes
         node.append("circle")
@@ -238,7 +337,30 @@ export class GraphRenderer {
         }, 1000);
     }
 
-    private createDragBehavior() {
+    private createEnhancedDragBehavior(nodes: GraphNode[]) {
+        // Initialize node manipulator if not already done
+        if (!this.nodeManipulator && this.currentGraph) {
+            // We need access to vault and parser - this will be passed from the view
+            // For now, fall back to basic drag behavior
+            return this.createBasicDragBehavior();
+        }
+
+        if (this.nodeManipulator && this.currentGraph) {
+            return this.nodeManipulator.createEnhancedDragBehavior(
+                nodes,
+                this.currentGraph,
+                (graph) => {
+                    this.currentGraph = graph;
+                    this.render(graph);
+                    this.updateActionButtonStates();
+                }
+            );
+        }
+
+        return this.createBasicDragBehavior();
+    }
+
+    private createBasicDragBehavior() {
         return d3.drag<SVGGElement, GraphNode>()
             .on("start", (event, d) => {
                 if (!event.active) this.simulation.alphaTarget(0.3).restart();

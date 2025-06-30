@@ -78,6 +78,9 @@ export class ZettelkastenGraphView extends ItemView {
         };
         this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
 
+        // Initialize node manipulator with vault and parser
+        this.renderer.initializeNodeManipulator(this.app.vault, this.parser);
+
         // Load initial graph
         await this.refreshGraph();
     }
@@ -109,7 +112,10 @@ export class ZettelkastenGraphView extends ItemView {
                     onDeleteNote: this.deleteNote.bind(this)
                 };
                 this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
-                
+
+                // Initialize node manipulator with vault and parser
+                this.renderer.initializeNodeManipulator(this.app.vault, this.parser);
+
                 if (this.currentGraph.nodes.size > 0) {
                     this.renderer.render(this.currentGraph);
                 } else {
@@ -174,6 +180,7 @@ export class ZettelkastenGraphView extends ItemView {
                     onDeleteNote: this.deleteNote.bind(this)
                 };
                 this.renderer = new GraphRenderer(graphContainer, this.app.workspace, noteCreationCallbacks);
+                this.renderer.initializeNodeManipulator(this.app.vault, this.parser);
                 this.renderer.render(this.currentGraph);
             }
         }

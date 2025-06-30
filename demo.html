@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zettelkasten Graph Interactive Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .demo-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .demo-header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .demo-header p {
+            margin: 0;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            padding: 40px;
+        }
+        
+        .feature-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .feature-card h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 1.3em;
+        }
+        
+        .feature-card p {
+            margin: 0 0 15px 0;
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .feature-list li {
+            padding: 8px 0;
+            color: #555;
+            position: relative;
+            padding-left: 20px;
+        }
+        
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .demo-section {
+            padding: 40px;
+            border-top: 1px solid #eee;
+        }
+        
+        .demo-section h2 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 1.8em;
+        }
+        
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 20px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        .installation-steps {
+            background: #e8f4fd;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+        
+        .installation-steps h3 {
+            margin: 0 0 15px 0;
+            color: #0066cc;
+        }
+        
+        .installation-steps ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .installation-steps li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        
+        .highlight {
+            background: linear-gradient(120deg, #a8edea 0%, #fed6e3 100%);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        
+        .keyboard-shortcuts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .shortcut {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .shortcut-key {
+            background: #333;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .shortcut-desc {
+            margin-top: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>🧠 Interactive Zettelkasten Graph</h1>
+            <p>Drag, drop, and restructure your knowledge graph with intuitive visual feedback</p>
+        </div>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <h3>🎯 Enhanced Drag & Drop</h3>
+                <p>Intuitively move nodes around your graph with real-time visual feedback.</p>
+                <ul class="feature-list">
+                    <li>Visual drop zone indicators</li>
+                    <li>Relationship previews</li>
+                    <li>Invalid operation warnings</li>
+                    <li>Smooth drag animations</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h3>🔄 Hierarchical Restructuring</h3>
+                <p>Reorganize your Zettelkasten hierarchy by moving nodes between levels.</p>
+                <ul class="feature-list">
+                    <li>Automatic renumbering</li>
+                    <li>Parent-child relationships</li>
+                    <li>Maintains numbering conventions</li>
+                    <li>Recursive child updates</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h3>✨ Visual Feedback</h3>
+                <p>Clear visual indicators guide you through every operation.</p>
+                <ul class="feature-list">
+                    <li>Pulsing drop zones</li>
+                    <li>Animated relationship lines</li>
+                    <li>Success/error notifications</li>
+                    <li>Smooth transitions</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h3>⏪ Undo/Redo Support</h3>
+                <p>Experiment freely with full operation history tracking.</p>
+                <ul class="feature-list">
+                    <li>50 operation history</li>
+                    <li>Keyboard shortcuts</li>
+                    <li>Visual button controls</li>
+                    <li>Complete state reversal</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🚀 How to Use</h2>
+            
+            <div class="installation-steps">
+                <h3>Getting Started</h3>
+                <ol>
+                    <li>Install the Zettelkasten Graph plugin in Obsidian</li>
+                    <li>Open the graph view from the command palette</li>
+                    <li>Start dragging nodes to see the magic happen!</li>
+                </ol>
+            </div>
+            
+            <h3>Basic Operations</h3>
+            <div class="code-block">
+<strong>Make a Child Relationship:</strong>
+1. Click and drag node "3.1" 
+2. Hover over node "2"
+3. See the blue pulsing circle (valid drop zone)
+4. Release to make "3.1" become "2.1"
+
+<strong>Invalid Operations:</strong>
+- Dragging a parent onto its child shows red warning
+- Self-drops are automatically prevented
+- Visual feedback guides you to valid operations
+            </div>
+            
+            <h3>Keyboard Shortcuts</h3>
+            <div class="keyboard-shortcuts">
+                <div class="shortcut">
+                    <div class="shortcut-key">Ctrl+Z</div>
+                    <div class="shortcut-desc">Undo last operation</div>
+                </div>
+                <div class="shortcut">
+                    <div class="shortcut-key">Ctrl+Y</div>
+                    <div class="shortcut-desc">Redo operation</div>
+                </div>
+                <div class="shortcut">
+                    <div class="shortcut-key">Ctrl+Shift+Z</div>
+                    <div class="shortcut-desc">Alternative redo</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🎨 Visual Features</h2>
+            
+            <h3>Animation System</h3>
+            <p>The interactive system includes a comprehensive animation framework:</p>
+            <ul class="feature-list">
+                <li><span class="highlight">Node Movement</span> - Smooth transitions when repositioning</li>
+                <li><span class="highlight">Scale Effects</span> - Emphasis animations during interactions</li>
+                <li><span class="highlight">Color Changes</span> - State-based color transitions</li>
+                <li><span class="highlight">Text Updates</span> - Animated number changes during renumbering</li>
+                <li><span class="highlight">Layout Changes</span> - Coordinated graph restructuring</li>
+            </ul>
+            
+            <h3>Performance Optimizations</h3>
+            <div class="code-block">
+• Hardware-accelerated CSS transitions
+• 60fps animation targeting
+• Cancellable animations to prevent conflicts
+• Optimized for graphs up to 100+ nodes
+• Smooth performance on modern browsers
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🔧 Technical Details</h2>
+            
+            <h3>Architecture</h3>
+            <p>The interactive system is built with three core components:</p>
+            
+            <div class="code-block">
+<strong>NodeManipulator</strong> (node-manipulator.ts)
+├── Enhanced drag behavior with validation
+├── Hierarchical relationship management  
+├── Command history for undo/redo
+└── File system integration
+
+<strong>AnimationSystem</strong> (animation-system.ts)
+├── Smooth transition animations
+├── Visual feedback effects
+├── Performance-optimized rendering
+└── Batch and sequential animations
+
+<strong>Enhanced GraphRenderer</strong> (graph-renderer.ts)
+├── Integration with existing D3.js renderer
+├── Action button controls
+├── Keyboard shortcut support
+└── Visual state management
+            </div>
+            
+            <h3>Numbering System</h3>
+            <p>Supports standard Zettelkasten numbering conventions:</p>
+            <ul class="feature-list">
+                <li><strong>Sequence:</strong> 21 → 21.1 → 21.1.1 → 21.1.2</li>
+                <li><strong>Branch:</strong> 21 → 21a → 21b → 21c</li>
+                <li><strong>Mixed:</strong> 21.1 → 21.1a → 21.1b</li>
+                <li><strong>Auto-renumbering:</strong> Moving 21.1 to 22 becomes 22.1</li>
+            </ul>
+        </div>
+        
+        <div class="demo-section">
+            <h2>📚 Learn More</h2>
+            <p>For detailed documentation, see <code>INTERACTIVE_FEATURES.md</code> in the plugin directory.</p>
+            <p>This interactive manipulation system transforms static graph viewing into an intuitive knowledge restructuring experience.</p>
+        </div>
+    </div>
+</body>
+</html>

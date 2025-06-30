@@ -377,3 +377,202 @@
 .theme-light .zettelkasten-context-menu {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
+
+/* Interactive Node Manipulation Styles */
+
+/* Drag and Drop States */
+.node.dragging {
+    opacity: 0.8;
+    z-index: 1000;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.node.drag-target {
+    stroke-width: 4px !important;
+    stroke: var(--color-accent) !important;
+    filter: brightness(1.2);
+}
+
+.node.invalid-drop-target {
+    stroke-width: 4px !important;
+    stroke: var(--text-error) !important;
+    filter: brightness(0.8);
+}
+
+/* Drop Zone Indicators */
+.drop-zone-indicator {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 3;
+    stroke-dasharray: 8,4;
+    opacity: 0.7;
+    animation: dropZonePulse 2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.drop-zone-indicator.invalid {
+    stroke: var(--text-error);
+    animation: dropZoneError 1s ease-in-out infinite;
+}
+
+/* Hierarchical Relationship Preview */
+.relationship-preview {
+    stroke: var(--color-accent);
+    stroke-width: 2;
+    stroke-dasharray: 4,2;
+    opacity: 0.6;
+    pointer-events: none;
+    animation: relationshipPreview 1.5s ease-in-out infinite;
+}
+
+.relationship-preview.invalid {
+    stroke: var(--text-error);
+    opacity: 0.4;
+}
+
+/* Node Transition Animations */
+.node.transitioning {
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.node.transitioning circle {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.node.transitioning text {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Renumbering Animation */
+.node.renumbering text {
+    animation: numberChange 0.8s ease-in-out;
+}
+
+/* Undo/Redo Button Styles */
+.zettelkasten-action-buttons {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+}
+
+.zettelkasten-action-button {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-normal);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+}
+
+.zettelkasten-action-button:hover {
+    background: var(--background-modifier-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+.zettelkasten-action-button:active {
+    transform: translateY(0);
+    background: var(--background-modifier-active);
+}
+
+.zettelkasten-action-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.zettelkasten-action-button:disabled:hover {
+    background: var(--background-primary);
+    transform: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Manipulation Feedback Overlay */
+.manipulation-feedback {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--font-interface);
+    font-size: 13px;
+    color: var(--text-normal);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    pointer-events: none;
+    opacity: 0;
+    animation: feedbackFadeIn 0.3s ease-out forwards;
+}
+
+.manipulation-feedback.success {
+    border-color: var(--color-green);
+    color: var(--color-green);
+}
+
+.manipulation-feedback.error {
+    border-color: var(--text-error);
+    color: var(--text-error);
+}
+
+/* Animations */
+@keyframes dropZonePulse {
+    0%, 100% { opacity: 0.7; stroke-width: 3; }
+    50% { opacity: 1; stroke-width: 4; }
+}
+
+@keyframes dropZoneError {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+
+@keyframes relationshipPreview {
+    0%, 100% { opacity: 0.6; stroke-dashoffset: 0; }
+    50% { opacity: 0.8; stroke-dashoffset: 12; }
+}
+
+@keyframes numberChange {
+    0% { transform: scale(1); opacity: 1; }
+    25% { transform: scale(1.2); opacity: 0.7; }
+    50% { transform: scale(0.8); opacity: 0.5; }
+    75% { transform: scale(1.1); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes feedbackFadeIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* Dark theme adjustments for manipulation features */
+.theme-dark .manipulation-feedback {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.theme-dark .zettelkasten-action-button {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.theme-dark .zettelkasten-action-button:hover {
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
