@@ -65,10 +65,6 @@ export class ZettelkastenGraphView extends ItemView {
 
         // Graph container
         const graphContainer = container.createDiv("zettelkasten-graph-container");
-        graphContainer.style.width = "100%";
-        graphContainer.style.height = "calc(100% - 100px)";
-        graphContainer.style.border = "1px solid var(--background-modifier-border)";
-        graphContainer.style.borderRadius = "4px";
 
         // Initialize renderer with note creation callbacks
         const noteCreationCallbacks = {
@@ -91,12 +87,14 @@ export class ZettelkastenGraphView extends ItemView {
         }
     }
 
-    private async refreshGraph() {
+    async refreshGraph() {
         try {
             // Show loading state
             const graphContainer = this.containerEl.querySelector('.zettelkasten-graph-container') as HTMLElement;
             if (graphContainer) {
-                graphContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">Loading graph...</div>';
+                graphContainer.empty();
+                const loadingDiv = graphContainer.createDiv('zettelkasten-loading-state');
+                loadingDiv.textContent = 'Loading graph...';
             }
 
             // Parse zettelkasten
@@ -105,7 +103,7 @@ export class ZettelkastenGraphView extends ItemView {
 
             // Re-initialize renderer with fresh container
             if (graphContainer) {
-                graphContainer.innerHTML = '';
+                graphContainer.empty();
                 const noteCreationCallbacks = {
                     onCreateSequential: this.createSequentialNote.bind(this),
                     onCreateBranch: this.createBranchNote.bind(this),
@@ -119,7 +117,8 @@ export class ZettelkastenGraphView extends ItemView {
                 if (this.currentGraph.nodes.size > 0) {
                     this.renderer.render(this.currentGraph);
                 } else {
-                    graphContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">No Zettelkasten notes found. Make sure your files contain numbering patterns like 21, 21.1, 21a, etc.</div>';
+                    const emptyDiv = graphContainer.createDiv('zettelkasten-empty-state');
+                    emptyDiv.textContent = 'No Zettelkasten notes found. Make sure your files contain numbering patterns like 21, 21.1, 21a, etc.';
                 }
             }
 
@@ -130,7 +129,9 @@ export class ZettelkastenGraphView extends ItemView {
             console.error('Error refreshing Zettelkasten graph:', error);
             const graphContainer = this.containerEl.querySelector('.zettelkasten-graph-container') as HTMLElement;
             if (graphContainer) {
-                graphContainer.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-error);">Error loading graph: ${error.message}</div>`;
+                graphContainer.empty();
+                const errorDiv = graphContainer.createDiv('zettelkasten-error-state');
+                errorDiv.textContent = `Error loading graph: ${error.message}`;
             }
         }
     }
@@ -149,24 +150,20 @@ export class ZettelkastenGraphView extends ItemView {
 
         // Add new stats
         const statsDiv = controlsDiv.createDiv('zettelkasten-stats');
-        statsDiv.style.marginTop = '10px';
-        statsDiv.style.padding = '10px';
-        statsDiv.style.backgroundColor = 'var(--background-secondary)';
-        statsDiv.style.borderRadius = '4px';
-        statsDiv.style.fontSize = '0.9em';
 
         const totalNodes = this.currentGraph.nodes.size;
         const sequenceNodes = Array.from(this.currentGraph.nodes.values()).filter(n => n.type === 'sequence').length;
         const branchNodes = Array.from(this.currentGraph.nodes.values()).filter(n => n.type === 'branch').length;
         const rootNodes = this.currentGraph.roots.length;
 
-        statsDiv.innerHTML = `
-            <div><strong>Graph Statistics:</strong></div>
-            <div>Total Notes: ${totalNodes}</div>
-            <div>Sequential Notes: ${sequenceNodes}</div>
-            <div>Branch Notes: ${branchNodes}</div>
-            <div>Root Notes: ${rootNodes}</div>
-        `;
+        // Create stats content using DOM API
+        const titleDiv = statsDiv.createDiv();
+        titleDiv.createEl('strong', { text: 'Graph Statistics:' });
+
+        statsDiv.createDiv({ text: `Total Notes: ${totalNodes}` });
+        statsDiv.createDiv({ text: `Sequential Notes: ${sequenceNodes}` });
+        statsDiv.createDiv({ text: `Branch Notes: ${branchNodes}` });
+        statsDiv.createDiv({ text: `Root Notes: ${rootNodes}` });
     }
 
     async onResize() {
@@ -254,8 +251,8 @@ export class ZettelkastenGraphView extends ItemView {
                 return;
             }
 
-            // Delete the file
-            await this.app.vault.delete(node.file);
+            // Delete the file using fileManager to respect user preferences
+            await this.app.fileManager.trashFile(node.file);
 
             new Notice(`Deleted note: ${node.file.basename}`);
 
@@ -272,61 +269,24 @@ export class ZettelkastenGraphView extends ItemView {
         return new Promise((resolve) => {
             const modal = document.createElement('div');
             modal.className = 'zettelkasten-delete-modal';
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.5);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 1000;
-            `;
 
             const dialog = document.createElement('div');
-            dialog.style.cssText = `
-                background: var(--background-primary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 8px;
-                padding: 20px;
-                max-width: 400px;
-                text-align: center;
-            `;
+            dialog.className = 'zettelkasten-delete-dialog';
 
             const message = document.createElement('p');
+            message.className = 'zettelkasten-delete-message';
             message.textContent = `Are you sure you want to delete "${node.file.basename}"?`;
-            message.style.marginBottom = '20px';
 
             const buttonContainer = document.createElement('div');
-            buttonContainer.style.cssText = `
-                display: flex;
-                gap: 10px;
-                justify-content: center;
-            `;
+            buttonContainer.className = 'zettelkasten-delete-buttons';
 
             const cancelButton = document.createElement('button');
+            cancelButton.className = 'zettelkasten-delete-button-cancel';
             cancelButton.textContent = 'Cancel';
-            cancelButton.style.cssText = `
-                padding: 8px 16px;
-                border: 1px solid var(--background-modifier-border);
-                background: var(--background-secondary);
-                color: var(--text-normal);
-                border-radius: 4px;
-                cursor: pointer;
-            `;
 
             const deleteButton = document.createElement('button');
+            deleteButton.className = 'zettelkasten-delete-button-confirm';
             deleteButton.textContent = 'Delete';
-            deleteButton.style.cssText = `
-                padding: 8px 16px;
-                border: 1px solid #e74c3c;
-                background: #e74c3c;
-                color: white;
-                border-radius: 4px;
-                cursor: pointer;
-            `;
 
             const cleanup = () => {
                 document.body.removeChild(modal);

@@ -54,7 +54,7 @@ export class GraphRenderer {
         // Undo button
         const undoButton = document.createElement('button');
         undoButton.className = 'zettelkasten-action-button';
-        undoButton.innerHTML = '↶';
+        undoButton.textContent = '↶';
         undoButton.title = 'Undo (Ctrl+Z)';
         undoButton.disabled = true;
         undoButton.onclick = () => this.handleUndo();
@@ -62,7 +62,7 @@ export class GraphRenderer {
         // Redo button
         const redoButton = document.createElement('button');
         redoButton.className = 'zettelkasten-action-button';
-        redoButton.innerHTML = '↷';
+        redoButton.textContent = '↷';
         redoButton.title = 'Redo (Ctrl+Y)';
         redoButton.disabled = true;
         redoButton.onclick = () => this.handleRedo();
@@ -498,16 +498,13 @@ export class GraphRenderer {
 
         const contextMenu = document.createElement('div');
         contextMenu.className = 'zettelkasten-context-menu';
-        contextMenu.style.position = 'absolute';
         contextMenu.style.left = `${event.pageX}px`;
         contextMenu.style.top = `${event.pageY}px`;
-        contextMenu.style.zIndex = '1000';
 
         // Delete option
         const deleteOption = document.createElement('div');
         deleteOption.className = 'zettelkasten-context-menu-item';
         deleteOption.textContent = 'Delete Note';
-        deleteOption.style.cursor = 'pointer';
 
         deleteOption.addEventListener('click', async () => {
             this.hideContextMenu();

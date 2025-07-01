@@ -245,7 +245,10 @@ export class AnimationSystem {
     stopPulseAnimation(pulseId: string): void {
         const animation = this.activeAnimations.get(pulseId);
         if (animation) {
-            (animation as any).interrupt();
+            // Use d3.interrupt to stop the transition
+            animation.each(function() {
+                d3.interrupt(this);
+            });
             this.activeAnimations.delete(pulseId);
         }
     }
@@ -286,7 +289,7 @@ export class AnimationSystem {
             });
 
             // Animate links
-            linkSelection.each(function(d: any) {
+            linkSelection.each(function(linkData: any) {
                 const link = d3.select(this);
                 const transition = link
                     .transition()
@@ -295,10 +298,10 @@ export class AnimationSystem {
                     .ease(d3.easeCubicInOut);
 
                 transition
-                    .attr('x1', (d.source as any).x)
-                    .attr('y1', (d.source as any).y)
-                    .attr('x2', (d.target as any).x)
-                    .attr('y2', (d.target as any).y)
+                    .attr('x1', linkData.source.x)
+                    .attr('y1', linkData.source.y)
+                    .attr('x2', linkData.target.x)
+                    .attr('y2', linkData.target.y)
                     .on('end', checkCompletion);
             });
 
@@ -327,13 +330,13 @@ export class AnimationSystem {
             const transition = nodeSelection
                 .transition()
                 .duration(finalConfig.duration)
-                .delay((d, i) => (finalConfig.delay || 0) + i * 50) // Stagger entrance
+                .delay((_, i) => (finalConfig.delay || 0) + i * 50) // Stagger entrance
                 .ease(d3.easeBackOut);
 
             transition
                 .style('opacity', 1)
                 .attr('transform', (d: any) => `translate(${d.x}, ${d.y}) scale(1)`)
-                .on('end', (d, i, nodes) => {
+                .on('end', (_, i, nodes) => {
                     // Resolve when last animation completes
                     if (i === nodes.length - 1) {
                         resolve();
@@ -361,10 +364,10 @@ export class AnimationSystem {
             transition
                 .style('opacity', 0)
                 .attr('transform', (d: any) => `translate(${d.x}, ${d.y}) scale(0)`)
-                .on('end', (d, i, nodes) => {
+                .on('end', (_, i, nodes) => {
                     // Remove nodes after animation
                     d3.select(nodes[i]).remove();
-                    
+
                     // Resolve when last animation completes
                     if (i === nodes.length - 1) {
                         resolve();
@@ -379,7 +382,10 @@ export class AnimationSystem {
     cancelAnimation(animationId: string): void {
         const animation = this.activeAnimations.get(animationId);
         if (animation) {
-            (animation as any).interrupt();
+            // Use d3.interrupt to stop the transition
+            animation.each(function() {
+                d3.interrupt(this);
+            });
             this.activeAnimations.delete(animationId);
         }
     }
@@ -389,7 +395,10 @@ export class AnimationSystem {
      */
     cancelAllAnimations(): void {
         this.activeAnimations.forEach((animation) => {
-            (animation as any).interrupt();
+            // Use d3.interrupt to stop the transition
+            animation.each(function() {
+                d3.interrupt(this);
+            });
         });
         this.activeAnimations.clear();
     }
@@ -412,8 +421,10 @@ export class AnimationSystem {
      * Create a custom easing function
      */
     static createCustomEasing(controlPoints: [number, number, number, number]): (t: number) => number {
-        const [x1, y1, x2, y2] = controlPoints;
-        return d3.easeCubic; // Simplified - in real implementation, would create cubic bezier
+        // In a real implementation, would use controlPoints to create cubic bezier
+        // For now, return a standard easing function
+        void controlPoints; // Suppress unused parameter warning
+        return d3.easeCubic;
     }
 
     /**

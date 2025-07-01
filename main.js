@@ -4592,7 +4592,9 @@ var AnimationSystem = class {
   stopPulseAnimation(pulseId) {
     const animation = this.activeAnimations.get(pulseId);
     if (animation) {
-      animation.interrupt();
+      animation.each(function() {
+        interrupt_default(this);
+      });
       this.activeAnimations.delete(pulseId);
     }
   }
@@ -4615,10 +4617,10 @@ var AnimationSystem = class {
         const transition2 = node.transition().duration(finalConfig.duration).delay(finalConfig.delay || 0).ease(cubicInOut);
         transition2.attr("transform", `translate(${d.x}, ${d.y})`).on("end", checkCompletion);
       });
-      linkSelection.each(function(d) {
+      linkSelection.each(function(linkData) {
         const link = select_default2(this);
         const transition2 = link.transition().duration(finalConfig.duration).delay(finalConfig.delay || 0).ease(cubicInOut);
-        transition2.attr("x1", d.source.x).attr("y1", d.source.y).attr("x2", d.target.x).attr("y2", d.target.y).on("end", checkCompletion);
+        transition2.attr("x1", linkData.source.x).attr("y1", linkData.source.y).attr("x2", linkData.target.x).attr("y2", linkData.target.y).on("end", checkCompletion);
       });
       if (totalAnimations === 0) {
         resolve();
@@ -4632,8 +4634,8 @@ var AnimationSystem = class {
     const finalConfig = { ...this.defaultConfig, ...config };
     return new Promise((resolve) => {
       nodeSelection.style("opacity", 0).attr("transform", (d) => `translate(${d.x}, ${d.y}) scale(0)`);
-      const transition2 = nodeSelection.transition().duration(finalConfig.duration).delay((d, i) => (finalConfig.delay || 0) + i * 50).ease(backOut);
-      transition2.style("opacity", 1).attr("transform", (d) => `translate(${d.x}, ${d.y}) scale(1)`).on("end", (d, i, nodes) => {
+      const transition2 = nodeSelection.transition().duration(finalConfig.duration).delay((_, i) => (finalConfig.delay || 0) + i * 50).ease(backOut);
+      transition2.style("opacity", 1).attr("transform", (d) => `translate(${d.x}, ${d.y}) scale(1)`).on("end", (_, i, nodes) => {
         if (i === nodes.length - 1) {
           resolve();
         }
@@ -4647,7 +4649,7 @@ var AnimationSystem = class {
     const finalConfig = { ...this.defaultConfig, ...config };
     return new Promise((resolve) => {
       const transition2 = nodeSelection.transition().duration(finalConfig.duration).delay(finalConfig.delay || 0).ease(backIn);
-      transition2.style("opacity", 0).attr("transform", (d) => `translate(${d.x}, ${d.y}) scale(0)`).on("end", (d, i, nodes) => {
+      transition2.style("opacity", 0).attr("transform", (d) => `translate(${d.x}, ${d.y}) scale(0)`).on("end", (_, i, nodes) => {
         select_default2(nodes[i]).remove();
         if (i === nodes.length - 1) {
           resolve();
@@ -4661,7 +4663,9 @@ var AnimationSystem = class {
   cancelAnimation(animationId) {
     const animation = this.activeAnimations.get(animationId);
     if (animation) {
-      animation.interrupt();
+      animation.each(function() {
+        interrupt_default(this);
+      });
       this.activeAnimations.delete(animationId);
     }
   }
@@ -4670,7 +4674,9 @@ var AnimationSystem = class {
    */
   cancelAllAnimations() {
     this.activeAnimations.forEach((animation) => {
-      animation.interrupt();
+      animation.each(function() {
+        interrupt_default(this);
+      });
     });
     this.activeAnimations.clear();
   }
@@ -4690,7 +4696,6 @@ var AnimationSystem = class {
    * Create a custom easing function
    */
   static createCustomEasing(controlPoints) {
-    const [x1, y1, x22, y22] = controlPoints;
     return cubicInOut;
   }
   /**
@@ -4729,13 +4734,13 @@ var GraphRenderer = class {
     buttonsContainer.className = "zettelkasten-action-buttons";
     const undoButton = document.createElement("button");
     undoButton.className = "zettelkasten-action-button";
-    undoButton.innerHTML = "\u21B6";
+    undoButton.textContent = "\u21B6";
     undoButton.title = "Undo (Ctrl+Z)";
     undoButton.disabled = true;
     undoButton.onclick = () => this.handleUndo();
     const redoButton = document.createElement("button");
     redoButton.className = "zettelkasten-action-button";
-    redoButton.innerHTML = "\u21B7";
+    redoButton.textContent = "\u21B7";
     redoButton.title = "Redo (Ctrl+Y)";
     redoButton.disabled = true;
     redoButton.onclick = () => this.handleRedo();
@@ -4953,14 +4958,11 @@ var GraphRenderer = class {
     this.hideContextMenu();
     const contextMenu = document.createElement("div");
     contextMenu.className = "zettelkasten-context-menu";
-    contextMenu.style.position = "absolute";
     contextMenu.style.left = `${event.pageX}px`;
     contextMenu.style.top = `${event.pageY}px`;
-    contextMenu.style.zIndex = "1000";
     const deleteOption = document.createElement("div");
     deleteOption.className = "zettelkasten-context-menu-item";
     deleteOption.textContent = "Delete Note";
-    deleteOption.style.cursor = "pointer";
     deleteOption.addEventListener("click", async () => {
       var _a;
       this.hideContextMenu();
@@ -5127,10 +5129,6 @@ var ZettelkastenGraphView = class extends import_obsidian2.ItemView {
       });
     });
     const graphContainer = container.createDiv("zettelkasten-graph-container");
-    graphContainer.style.width = "100%";
-    graphContainer.style.height = "calc(100% - 100px)";
-    graphContainer.style.border = "1px solid var(--background-modifier-border)";
-    graphContainer.style.borderRadius = "4px";
     const noteCreationCallbacks = {
       onCreateSequential: this.createSequentialNote.bind(this),
       onCreateBranch: this.createBranchNote.bind(this),
@@ -5149,12 +5147,14 @@ var ZettelkastenGraphView = class extends import_obsidian2.ItemView {
     try {
       const graphContainer = this.containerEl.querySelector(".zettelkasten-graph-container");
       if (graphContainer) {
-        graphContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">Loading graph...</div>';
+        graphContainer.empty();
+        const loadingDiv = graphContainer.createDiv("zettelkasten-loading-state");
+        loadingDiv.textContent = "Loading graph...";
       }
       const folderPath = this.plugin.settings.folderPath.trim() || void 0;
       this.currentGraph = await this.parser.parseZettelkasten(folderPath);
       if (graphContainer) {
-        graphContainer.innerHTML = "";
+        graphContainer.empty();
         const noteCreationCallbacks = {
           onCreateSequential: this.createSequentialNote.bind(this),
           onCreateBranch: this.createBranchNote.bind(this),
@@ -5165,7 +5165,8 @@ var ZettelkastenGraphView = class extends import_obsidian2.ItemView {
         if (this.currentGraph.nodes.size > 0) {
           this.renderer.render(this.currentGraph);
         } else {
-          graphContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">No Zettelkasten notes found. Make sure your files contain numbering patterns like 21, 21.1, 21a, etc.</div>';
+          const emptyDiv = graphContainer.createDiv("zettelkasten-empty-state");
+          emptyDiv.textContent = "No Zettelkasten notes found. Make sure your files contain numbering patterns like 21, 21.1, 21a, etc.";
         }
       }
       this.updateStats();
@@ -5173,7 +5174,9 @@ var ZettelkastenGraphView = class extends import_obsidian2.ItemView {
       console.error("Error refreshing Zettelkasten graph:", error);
       const graphContainer = this.containerEl.querySelector(".zettelkasten-graph-container");
       if (graphContainer) {
-        graphContainer.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-error);">Error loading graph: ${error.message}</div>`;
+        graphContainer.empty();
+        const errorDiv = graphContainer.createDiv("zettelkasten-error-state");
+        errorDiv.textContent = `Error loading graph: ${error.message}`;
       }
     }
   }
@@ -5188,22 +5191,16 @@ var ZettelkastenGraphView = class extends import_obsidian2.ItemView {
       existingStats.remove();
     }
     const statsDiv = controlsDiv.createDiv("zettelkasten-stats");
-    statsDiv.style.marginTop = "10px";
-    statsDiv.style.padding = "10px";
-    statsDiv.style.backgroundColor = "var(--background-secondary)";
-    statsDiv.style.borderRadius = "4px";
-    statsDiv.style.fontSize = "0.9em";
     const totalNodes = this.currentGraph.nodes.size;
     const sequenceNodes = Array.from(this.currentGraph.nodes.values()).filter((n) => n.type === "sequence").length;
     const branchNodes = Array.from(this.currentGraph.nodes.values()).filter((n) => n.type === "branch").length;
     const rootNodes = this.currentGraph.roots.length;
-    statsDiv.innerHTML = `
-            <div><strong>Graph Statistics:</strong></div>
-            <div>Total Notes: ${totalNodes}</div>
-            <div>Sequential Notes: ${sequenceNodes}</div>
-            <div>Branch Notes: ${branchNodes}</div>
-            <div>Root Notes: ${rootNodes}</div>
-        `;
+    const titleDiv = statsDiv.createDiv();
+    titleDiv.createEl("strong", { text: "Graph Statistics:" });
+    statsDiv.createDiv({ text: `Total Notes: ${totalNodes}` });
+    statsDiv.createDiv({ text: `Sequential Notes: ${sequenceNodes}` });
+    statsDiv.createDiv({ text: `Branch Notes: ${branchNodes}` });
+    statsDiv.createDiv({ text: `Root Notes: ${rootNodes}` });
   }
   async onResize() {
     if (this.renderer && this.currentGraph) {
@@ -5272,7 +5269,7 @@ var ZettelkastenGraphView = class extends import_obsidian2.ItemView {
       if (!confirmed) {
         return;
       }
-      await this.app.vault.delete(node.file);
+      await this.app.fileManager.trashFile(node.file);
       new import_obsidian2.Notice(`Deleted note: ${node.file.basename}`);
       await this.refreshGraphStable();
     } catch (error) {
@@ -5284,56 +5281,19 @@ var ZettelkastenGraphView = class extends import_obsidian2.ItemView {
     return new Promise((resolve) => {
       const modal = document.createElement("div");
       modal.className = "zettelkasten-delete-modal";
-      modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.5);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 1000;
-            `;
       const dialog = document.createElement("div");
-      dialog.style.cssText = `
-                background: var(--background-primary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 8px;
-                padding: 20px;
-                max-width: 400px;
-                text-align: center;
-            `;
+      dialog.className = "zettelkasten-delete-dialog";
       const message = document.createElement("p");
+      message.className = "zettelkasten-delete-message";
       message.textContent = `Are you sure you want to delete "${node.file.basename}"?`;
-      message.style.marginBottom = "20px";
       const buttonContainer = document.createElement("div");
-      buttonContainer.style.cssText = `
-                display: flex;
-                gap: 10px;
-                justify-content: center;
-            `;
+      buttonContainer.className = "zettelkasten-delete-buttons";
       const cancelButton = document.createElement("button");
+      cancelButton.className = "zettelkasten-delete-button-cancel";
       cancelButton.textContent = "Cancel";
-      cancelButton.style.cssText = `
-                padding: 8px 16px;
-                border: 1px solid var(--background-modifier-border);
-                background: var(--background-secondary);
-                color: var(--text-normal);
-                border-radius: 4px;
-                cursor: pointer;
-            `;
       const deleteButton = document.createElement("button");
+      deleteButton.className = "zettelkasten-delete-button-confirm";
       deleteButton.textContent = "Delete";
-      deleteButton.style.cssText = `
-                padding: 8px 16px;
-                border: 1px solid #e74c3c;
-                background: #e74c3c;
-                color: white;
-                border-radius: 4px;
-                cursor: pointer;
-            `;
       const cleanup = () => {
         document.body.removeChild(modal);
       };
@@ -5428,7 +5388,9 @@ var ZettelkastenGraphPlugin = class extends import_obsidian4.Plugin {
         const leaves = this.app.workspace.getLeavesOfType(ZETTELKASTEN_GRAPH_VIEW_TYPE);
         if (leaves.length > 0) {
           const view = leaves[0].view;
-          view.refreshGraph();
+          if ("refreshGraph" in view && typeof view.refreshGraph === "function") {
+            view.refreshGraph();
+          }
         }
       }
     });
@@ -5440,7 +5402,6 @@ var ZettelkastenGraphPlugin = class extends import_obsidian4.Plugin {
   }
   async onunload() {
     console.log("Unloading Zettelkasten Graph Plugin");
-    this.app.workspace.detachLeavesOfType(ZETTELKASTEN_GRAPH_VIEW_TYPE);
   }
   async activateView() {
     const { workspace } = this.app;

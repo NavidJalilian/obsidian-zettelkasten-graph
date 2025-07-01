@@ -48,8 +48,10 @@ export default class ZettelkastenGraphPlugin extends Plugin {
                 const leaves = this.app.workspace.getLeavesOfType(ZETTELKASTEN_GRAPH_VIEW_TYPE);
                 if (leaves.length > 0) {
                     const view = leaves[0].view as ZettelkastenGraphView;
-                    // Trigger refresh by calling the private method through any
-                    (view as any).refreshGraph();
+                    // Use proper method access instead of any casting
+                    if ('refreshGraph' in view && typeof view.refreshGraph === 'function') {
+                        (view.refreshGraph as () => Promise<void>)();
+                    }
                 }
             }
         });
@@ -66,9 +68,9 @@ export default class ZettelkastenGraphPlugin extends Plugin {
 
     async onunload() {
         console.log('Unloading Zettelkasten Graph Plugin');
-        
-        // Close all instances of the view
-        this.app.workspace.detachLeavesOfType(ZETTELKASTEN_GRAPH_VIEW_TYPE);
+
+        // Note: Do not detach leaves in onunload as per Obsidian guidelines
+        // The workspace will handle cleanup automatically
     }
 
     async activateView() {
